@@ -1,0 +1,6 @@
+when HTTP_REQUEST { 
+  if { [HTTP::host] contains " crm.uniwise.cz" and [HTTP::path] eq "/" } {
+    HTTP::header replace "Host" "192.168.3.7"
+    HTTP::uri [string map {"/" "/vtigercrm"} [HTTP::uri]]
+  }
+}

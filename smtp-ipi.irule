@@ -1,0 +1,22 @@
+# https://techdocs.f5.com/kb/en-us/products/big-ip_ltm/manuals/product/ltm-implementations-13-1-0/8.html
+# https://www.lifewire.com/smtp-error-messages-1166422
+
+when CLIENT_ACCEPTED {
+    set ip_reputation_categories [IP::reputation [IP::client_addr]]
+    set is_reject 0
+
+    if { [IP::client_addr] == "10.1.10.1"} {
+      set is_reject 1
+    }
+    if {($ip_reputation_categories contains "Windows Exploits")} {
+       set is_reject 1
+    } 
+    if {($ip_reputation_categories contains "Web Attacks")} {
+       set is_reject 1
+    } 
+    if {($is_reject)} {
+        log local0. "Attempted access from malicious IP address [IP::client_addr]
+        ($ip_reputation_categories), request was rejected"
+        TCP::respond "550 IP Address Blocked\r\n"
+    }
+}

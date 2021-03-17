@@ -1,0 +1,13 @@
+# geoip_lookup 1.2.3.4
+# country_code = SK
+# country_name = Slovakia
+# region_name = Bratislava
+# continent_code = EU
+
+switch [whereis [IP::client_addr] country] {
+      "SK" -
+      "CZ" {
+
+      }
+
+{ [class match [whereis [IP::client_addr] country] equals DG_Countries] }

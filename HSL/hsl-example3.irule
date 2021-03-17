@@ -1,0 +1,6 @@
+when CLIENT_ACCEPTED {
+    set hsl [HSL::open -publisher /Common/lpAll]
+}
+when HTTP_REQUEST {
+  HSL::send $hsl "<190> [IP::client_addr]:[TCP::client_port]->[IP::local_addr]:[TCP::local_port]; [HTTP::host][HTTP::uri]"
+}

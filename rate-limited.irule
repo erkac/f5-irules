@@ -1,0 +1,32 @@
+when RULE_INIT {
+    set static::maxReqs 10;
+    set static::maxReqsHard 20;
+    set static::timeout 60;
+}
+ 
+when HTTP_REQUEST {
+
+  set client_IP_addr [IP::client_addr]
+
+  if { ([HTTP::method] eq "POST") and ( [HTTP::path] eq "/registracia" ) } {
+
+    # whitelist TG: ips_whitelist
+    #if { [class match [IP::client_addr] equals ips_whitelist] }{
+    #  return
+    #}
+
+    set getcount [table lookup -notouch "$client_IP_addr:[HTTP::uri]"]
+    if { $getcount equals "" } {
+      table set "$client_IP_addr:[HTTP::uri]" "1" $static::timeout $static::timeout
+    } else {
+      if { $getcount > $static::maxReqsHard } {
+        log local0. "[IP::client_addr] exceeded $static::maxReqsHard HTTP requests per second. URL is [HTTP::host][HTTP::uri]"
+        HTTP::respond 429 content "Prekročený počet odoslaných formulárov z lokality: [whereis [IP::client_addr] city] [whereis [IP::client_addr] country]" Retry-After 60
+      } elseif { $getcount > $static::maxReqs } {
+        log local0. "[IP::client_addr] exceeded $static::maxReqs HTTP requests per second. URL is [HTTP::host][HTTP::uri]"
+      } else {
+        table incr -notouch "$client_IP_addr:[HTTP::uri]"
+      }
+    }
+  }
+}

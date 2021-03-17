@@ -1,0 +1,12 @@
+# https://support.f5.com/csp/article/K15573541
+# Don't forget to Trigger ASM iRule Events setting, click Normal Mode
+
+when ASM_REQUEST_DONE {
+         if { [ASM::violation names] contains "VIOLATION_OBJ_DOESNT_EXIST" and [string tolower [HTTP::uri]] contains "/swagger" and [IP::client_addr] == "10.1.10.1" }
+         #if { [ASM::violation names] contains "VIOLATION_OBJ_DOESNT_EXIST" and [string tolower [HTTP::uri]] contains "/swagger" and [ class match [IP::client_addr] equals allowed-ips ] }
+
+         {
+                ASM::unblock
+                log local0. "ASM unblocking [HTTP::uri] - Violation [ASM::violation names]"
+         }
+}

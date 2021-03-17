@@ -1,0 +1,9 @@
+# https://support.f5.com/csp/article/K73862425
+# tmsh modify sys file data-group subnet_list file://$path
+# file format:
+# host 1.2.3.4,
+
+if { [class match [IP::client_addr] equals subnet_list] } {
+    Send user to instance 1
+    pool dummy_pool
+} 

@@ -1,0 +1,356 @@
+# Author: Jeppe Koefoed
+#
+# It should not require anything except ssl+http+bot(passive) profile on the vs.
+# To get the device id you will need get the js script injected somewhere.
+# I just added it to the html on the backend. If anyone wants, I can go through it.
+ 
+# If you do the https://site/deviceid you will see the table.
+# If you do https://site/deleteall it deletes the table which is usefull when debugging.
+# The entries time out after 24 hours.
+
+when RULE_INIT {
+  set static::TABLE_TIMEOUT 86400
+ 
+}
+when CLIENT_ACCEPTED {
+  set TABLE_LINK "DEVICEID_[virtual name]";
+  set botdef_deviceid ""
+    #################################################################################################################################
+    #initialize fingerprint
+    set fingerprint 0
+    ## Collect the TCP payload
+    TCP::collect
+    #################################################################################################################################
+}
+when CLIENT_DATA {
+    #################################################################################################################################
+    #Get the data we need to fingerprint the tls session and call the fingerprint function
+    if { ! [info exists rlen] } {
+        binary scan [TCP::payload] cH4ScH6H4 rtype outer_sslver rlen hs_type rilen inner_sslver
+ 
+        if { ( ${rtype} == 22 ) and ( ${hs_type} == 1 ) } {
+            ## This is a TLS ClientHello message (22 = TLS handshake, 1 = ClientHello)
+ 
+            ## Call the fingerprintTLS proc
+            set fingerprint [call fingerprintTLS [TCP::payload] ${rlen} ${outer_sslver} ${inner_sslver} [IP::client_addr] [IP::local_addr]]
+            #log local0. "fingerprint = ${fingerprint}"
+        }
+    }
+    # Collect the rest of the record if necessary
+    if { [TCP::payload length] < $rlen } {
+        TCP::collect $rlen
+    }
+    ## Release the paylaod
+    TCP::release
+    #################################################################################################################################
+}
+ 
+when BOTDEFENSE_ACTION {
+    set botdef_deviceid "[BOTDEFENSE::client_type]([BOTDEFENSE::device_id])"
+}
+ 
+when HTTP_REQUEST {
+    switch -glob [string tolower [HTTP::uri]] {
+    "/deviceid*" {
+    log local0. "DeviceID-admin: [HTTP::uri] tests"
+    # Start web response string
+    #<script src="sorttable.js"></script>
+      set content {<html><head><title>Client Tracking</title>
+        <style>
+          a { color: blue; text-decoration:none; font-weight:bold;}
+          a:hover { color: navy; font-weight:bold; }
+          td { font-family: Tahoma, Arial, Helvetica; font-size: 12px; color: black; padding:5px;border:1px solid #0101DF; }
+          th { font-family: Tahoma, Arial, Helvetica; font-size: 12px; background-color:#0101DF;color:white;}
+        </style>
+        <script src="https://kryogenix.org/code/browser/sorttable/sorttable.js"></script>
+        </head>
+        <body>
+        <H1>Client metrics - press on header to sort</H1>
+      }
+    # Create web table
+      append content "<table class="sortable"><td valign='top'>"
+     
+      #append content "<table border='1' cellpadding='5' cellspacing='0' width='100%'>";
+      #append content "<th colspan='11'>Client Metrics</th>";
+      append content "<tr><th>Activity</th><th>diA - will change whenever local storage is deleted, such as when a user clears cookies or switch to private mode</th><th>diB -  could change when certain events occur such as a browser update, configuration change, or hardware change</th><th>Source IP</th><th>Location</th><th>ISP</th><th>Hop count</th><th>User Agent</th><th>IP reputation</th><th>SSL fingerprint</th><th>BOT defense category(ID)</th></tr>";
+      # $src_ip-$country-$ipisp-$iphops-$UA-$ipreputation-${fingerprint}"
+      append content "</td></tr>";
+ 
+    # Create table content
+      foreach dia [lsort -dictionary [table keys -subtable $TABLE_LINK]] {
+            set num [table lookup -subtable $TABLE_LINK $dia];
+            set tablename $TABLE_LINK$dia
+            foreach dib [lsort -dictionary [table keys -subtable $tablename]] {
+               set line [table lookup -subtable $tablename $dib];
+               set fields [split $line "-"]
+               append content "<tr><td>$num</td><td>$dia</td><td>$dib</td><td>[lindex $fields 0]</td><td>[lindex $fields 1]</td><td>[lindex $fields 2]</td><td>[lindex $fields 3]</td><td>[lindex $fields 4]</td><td>[lindex $fields 5]</td><td>[lindex $fields 6]</td><td>[lindex $fields 7]</td></tr>";
+            }
+      }
+     set tblname "$TABLE_LINK"
+     append tblname "IP"
+      foreach srcip [lsort -dictionary [table keys -subtable $tblname]] {
+        set line [table lookup -subtable $tblname $srcip];
+        set fields [split $line "-"]
+        append content "<tr><td>N/A</td><td>Not available</td><td>Not available</td><td>[lindex $fields 0]</td><td>[lindex $fields 1]</td><td>[lindex $fields 2]</td><td>[lindex $fields 3]</td><td>[lindex $fields 4]</td><td>[lindex $fields 5]</td><td>[lindex $fields 6]</td><td>[lindex $fields 7]</td></tr>";
+      }
+      append content "</table></body></html>";
+     
+    # Respond       
+      HTTP::respond 200 content $content;
+    }
+   
+    "/deleteall*" {
+     # delete all tables!!
+     foreach dia [lsort -dictionary [table keys -subtable $TABLE_LINK]] {
+       set tablename $TABLE_LINK$dia
+       table delete -subtable $tablename -all;
+     }
+     set tblname "$TABLE_LINK"
+     append tblname "IP"
+     table delete -subtable $tblname -all;
+    
+      table delete -subtable $TABLE_LINK -all;
+      HTTP::redirect "http://[HTTP::host]/deviceid"
+       log local0. "Deleted table"
+    }
+ 
+    default {
+       #  === Info ====
+       # x src ip
+       # x Geo
+       # x IPrep
+       # x ISP
+       # x hops
+       # x UserAgent
+       # x DeviceID1 + DeviceID2
+       # BOT category
+       # BOT deviceID
+       # x TLS fingerprint
+       # ASM deviceID
+      
+       #Format: string with - separator eg
+       # country;TTL;ID1;ID2;
+      
+        set src_ip [IP::client_addr]
+        set country [string map { "-" ""} "[whereis $src_ip state]/[whereis $src_ip country]"]
+        set ipreputation [string map { "{" "" "}" ""} [IP::reputation $src_ip]]
+        set ipisp [string map { "-" ""} [whereis $src_ip isp]]
+        set iphops [IP::hops]
+        set UA [string map { "-" ""} [HTTP::header "User-Agent"]]
+ 
+        set di_cookie [URI::decode [HTTP::cookie "_imp_apg_r_" ]]
+        #log local0. "di_cookie: $di_cookie"
+        # example: {"diA":"AVo0wl8AAAAA0wtVTW7tZ2gFWvSKjvyU","diB":"AXyB1YW18JhJ4bPi6cCCs7pS3e1sn8wf"}
+        set dia [findstr $di_cookie "diA" 6 "\""]
+        set dib [findstr $di_cookie "diB" 6 "\""]
+        if { $dia =="" }{ set dia "NA" }
+        if { $dib =="" }{ set dib "NA" }
+       
+        set dia2 [HTTP::cookie "_imp_di_pc_" ]
+#        log local0. "0 dia: $dia, dib: $dib, dia2: $dia2"
+       
+                #set table_content "$src_ip-$country-$ipttl-$iphops-$UA-$ipreputation"
+                set table_content "$src_ip-$country-$ipisp-$iphops-$UA-$ipreputation-${fingerprint}-$botdef_deviceid"
+                #log local0. "table_content=$table_content"
+ 
+        # Check if dib table exists by looking up dia in global table
+        #log local0. "1 dia: $dia, dib=$dib"
+      
+        #log local0. "tblname=$tblname"
+       
+        if { $dia =="NA" } {
+           set tblname "$TABLE_LINK"
+           append tblname "IP"
+            table set -subtable $tblname $src_ip $table_content $static::TABLE_TIMEOUT
+            #set global_ip [table lookup -notouch -subtable $tblname $src_ip]
+            #if { $global_ip == "" } {
+            #   #New IP
+            #   table set -subtable $tblname $src_ip $table_content $static::TABLE_TIMEOUT
+            #}
+            #else {
+            # 
+            #}
+        }
+        else {
+          set tblname "$TABLE_LINK$dia"
+        set global_dia [table lookup -notouch -subtable $TABLE_LINK $dia]
+        if { $global_dia == "" } {
+         #   log local0. "2 dia: $dia, dib=$dib"
+            #New dia
+            table set -subtable $TABLE_LINK $dia 1 $static::TABLE_TIMEOUT
+            #Create new dib subtable storing string
+            table set -subtable $tblname $dib $table_content $static::TABLE_TIMEOUT
+        } else {
+          #  log local0. "3 dia: $dia, dib=$dib"
+            #Existing dia
+            # Increase count
+            table incr -subtable $TABLE_LINK $dia 1
+     
+           # log local0. "4 dia: $dia, dib=$dib"
+            #Lookup in dib subtable
+            set table_lookup [table lookup -notouch -subtable $tblname $dib]
+            if { $table_lookup == "" } {
+            #    log local0. "5 dia: $dia, dib=$dib"
+                #No entry for dib - create it
+                table set -subtable $tblname $dib $table_content $static::TABLE_TIMEOUT
+            }
+            else
+            {
+                #Let's check if we have same content or more to add
+                if {  $table_lookup ne $table_content } {
+                    if { [string length $table_lookup] < [string length $table_content] } {
+                        table replace -subtable $tblname $dib $table_content $static::TABLE_TIMEOUT
+                    }
+                }
+             }
+        }
+      }
+    }
+  }
+}
+ 
+## Library-Rule
+ 
+## TLS Fingerprint Procedure #################
+##
+## Author: Kevin Stewart, Original (12/2016), Update(09/2020)
+## Derived from Lee Brotherston's "tls-fingerprinting" project @ https://github.com/LeeBrotherston/tls-fingerprinting
+## Purpose: to identify the user agent based on unique characteristics of the TLS ClientHello message
+## Input:
+##      Full TCP payload collected in CLIENT_DATA event of a TLS handshake ClientHello message
+##      Record length (rlen)
+##      TLS outer version (outer)
+##      TLS inner version (inner)
+##      Client IP
+##      Server IP
+##
+## ## Update v2 to remove TCL errors from original code, and add code to return FP string, fp hash, or user-agent lookup
+##############################################
+proc fingerprintTLS { payload rlen outer inner clientip serverip } {
+   
+    ## user-defined: enable logging
+    set debug 0
+   
+    ## user-defined: enable
+    ## - fingerprint string return      ("fp")
+    ## - fingerprint md5 hash return    ("fphash")
+    ## - user-agent lookup result       ("ua") // Removed
+    set proc_return "fphash"
+ 
+ 
+    ## The first 43 bytes of a ClientHello message are the record type, TLS versions, some length values and the
+    ## handshake type. We should already know this stuff from the calling iRule. We're also going to be walking the
+    ## packet, so the field_offset variable will be used to track where we are.
+    set field_offset 43
+ 
+    ## The first value in the payload after the offset is the session ID, which may be empty. Grab the session ID length
+    ## value and move the field_offset variable that many bytes forward to skip it.
+    binary scan ${payload} @${field_offset}c sessID_len
+    set field_offset [expr {${field_offset} + 1 + ${sessID_len}}]
+ 
+    ## The next value in the payload is the ciphersuite list length (how big the ciphersuite list is. We need the binary
+    ## and hex values of this data.
+    binary scan ${payload} @${field_offset}S cipherList_len
+    binary scan ${payload} @${field_offset}H4 cipherList_len_hex
+    set cipherList_len_hex_text ${cipherList_len_hex}
+ 
+    ## Now that we have the ciphersuite list length, let's offset the field_offset variable to skip over the length (2) bytes
+    ## and go get the ciphersuite list. Multiple by 2 to get the number of appropriate hex characters.
+    set field_offset [expr {${field_offset} + 2}]
+    set cipherList_len_hex [expr {${cipherList_len} * 2}]
+    binary scan ${payload} @${field_offset}H${cipherList_len_hex} cipherlist
+ 
+    ## Next is the compression method length and compression method. First move field_offset to skip past the ciphersuite
+    ## list, then grab the compression method length. Then move field_offset past the length (2) bytes and grab the
+    ## compression method value. Finally, move field_offset past the compression method bytes.
+    set field_offset [expr {${field_offset} + ${cipherList_len}}]
+    binary scan ${payload} @${field_offset}c compression_len
+    #set field_offset [expr {${field_offset} + ${compression_len}}]
+    set field_offset [expr {${field_offset} + 1}]
+    binary scan ${payload} @${field_offset}H[expr {${compression_len} * 2}] compression_type
+    set field_offset [expr {${field_offset} + ${compression_len}}]
+ 
+    ## We should be in the extensions section now, so we're going to just run through the remaining data and
+    ## pick out the extensions as we go. But first let's make sure there's more record data left, based on
+    ## the current field_offset vs. rlen.
+    if { [expr {${field_offset} < ${rlen}}] } {
+        ## There's extension data, so let's go get it. Skip the first 2 bytes that are the extensions length
+        set field_offset [expr {${field_offset} + 2}]
+ 
+        ## Make a variable to store the extension types we find
+        set extensions_list ""
+ 
+        ## Pad rlen by 1 byte
+        set rlen [expr {${rlen} + 1}]
+ 
+        while { [expr {${field_offset} <= ${rlen}}] } {
+            ## Grab the first 2 bytes to determine the extension type
+            binary scan ${payload} @${field_offset}H4 ext
+ 
+            ## Store the extension in the extensions_list variable
+            append extensions_list ${ext}
+ 
+            ## Increment field_offset past the 2 bytes of the extension type
+            set field_offset [expr {${field_offset} + 2}]
+ 
+            ## Grab the 2 bytes of extension lenth
+            binary scan ${payload} @${field_offset}S ext_len
+ 
+            ## Increment field_offset past the 2 bytes of the extension length
+            set field_offset [expr {${field_offset} + 2}]
+ 
+            ## Look for specific extension types in case these need to increment the field_offset (and because we need their values)
+            switch $ext {
+                "000b" {
+                    ## ec_point_format - there's another 1 byte after length
+                    ## Grab the extension data
+                    binary scan ${payload} @[expr {${field_offset} + 1}]H[expr {(${ext_len} - 1) * 2}] ext_data
+                    set ec_point_format ${ext_data}
+                }
+                "000a" {
+                    ## elliptic_curves - there's another 2 bytes after length
+                    ## Grab the extension data
+                    binary scan ${payload} @[expr {${field_offset} + 2}]H[expr {(${ext_len} - 2) * 2}] ext_data
+                    set elliptic_curves ${ext_data}
+                }
+                "000d" {
+                    ## sig_alg - there's another 2 bytes after length
+                    ## Grab the extension data
+                    binary scan ${payload} @[expr {${field_offset} + 2}]H[expr {(${ext_len} - 2) * 2}] ext_data
+                    set sig_alg ${ext_data}
+                }
+                default {
+                    ## Grab the otherwise unknown extension data
+                    binary scan ${payload} @${field_offset}H[expr {${ext_len} * 2}] ext_data
+                }
+            }
+ 
+            ## Increment the field_offset past the extension data length. Repeat this loop until we reach rlen (the end of the payload)
+            set field_offset [expr {${field_offset} + ${ext_len}}]
+        }
+    }
+ 
+    ## Now let's compile all of that data.
+    set cipl [string toupper ${cipherList_len_hex_text}]
+    set ciph [string toupper ${cipherlist}]
+    set coml ${compression_len}
+    set comp [string toupper ${compression_type}]
+    if { ( [info exists extensions_list] ) and ( ${extensions_list} ne "" ) } { set exte [string toupper ${extensions_list}] } else { set exte "@@@@" }
+    if { ( [info exists elliptic_curves] ) and ( ${elliptic_curves} ne "" ) } { set ecur [string toupper ${elliptic_curves}] } else { set ecur "@@@@" }
+    if { ( [info exists sig_alg] ) and ( ${sig_alg} ne "" ) } { set siga [string toupper ${sig_alg}] } else { set siga "@@@@" }
+    if { ( [info exists ec_point_format] ) and ( ${ec_point_format} ne "" ) } { set ecfp [string toupper ${ec_point_format}] } else { set ecfp "@@@@" }
+ 
+    ## Now let's build the fingerprint string and search the database
+    set fingerprint_str "${outer}+${inner}+${cipl}+${ciph}+${coml}+${comp}+${exte}+${ecur}+${siga}+${ecfp}"
+    if { ${debug} } { log local0. "${clientip}-${serverip}: fingerprint_str = ${fingerprint_str}" }
+ 
+    switch ${proc_return} {
+        "fp" {
+            return ${fingerprint_str}
+        }
+        "fphash" {
+            binary scan [md5 ${fingerprint_str}] H* fp_digest
+            return ${fp_digest}
+        }
+    }
+}                      

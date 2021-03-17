@@ -1,0 +1,22 @@
+when BOTDEFENSE_ACTION {
+    set log "BOTDEFENSE:"
+    append log " Attacking_IP [IP::client_addr] ->"
+    #append log " uri [HTTP::uri]"
+    #append log " cs_possible [BOTDEFENSE::cs_possible]"
+    #append log " cs_allowed [BOTDEFENSE::cs_allowed]"
+    #append log " cs_attribute(device_id) [BOTDEFENSE::cs_attribute device_id]"
+    #append log " cookie_status [BOTDEFENSE::cookie_status]"
+    #append log " cookie_age [BOTDEFENSE::cookie_age]"
+    #append log " device_id [BOTDEFENSE::device_id]"
+    #append log " support_id [BOTDEFENSE::support_id]"
+    #append log " previous_action [BOTDEFENSE::previous_action]"
+    #append log " previous_support_id [BOTDEFENSE::previous_support_id]"
+    #append log " previous_request_age [BOTDEFENSE::previous_request_age]"
+    #append log " bot_signature [BOTDEFENSE::bot_signature]"
+    #append log " bot_signature_category [BOTDEFENSE::bot_signature_category]"
+    #append log " captcha_status [BOTDEFENSE::captcha_status]"
+    #append log " captcha_age [BOTDEFENSE::captcha_age]"
+    #append log " default action [BOTDEFENSE::action]"
+    append log " reason \"[BOTDEFENSE::reason]\""
+    log local0.info $log
+}

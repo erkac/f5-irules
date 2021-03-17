@@ -1,0 +1,12 @@
+# Expire URLs in 60s
+
+when CACHE_REQUEST {​​​​
+  if {​​​​ [CACHE::age] > 60 }​​​​ {​​​​
+    switch -glob [string tolower [HTTP::uri]] {​​​​
+      "/test" -
+      "/obsadenost" {​​​​
+        CACHE::expire
+      }​​​​
+    }​​​​
+  }​​​​
+}​​​​

@@ -1,0 +1,22 @@
+when HTTP_REQUEST {
+
+  if { ([HTTP::method] equals "POST") and ([HTTP::path] equals "/test") } {
+    if {[HTTP::header "Content-Length"] ne "" && [HTTP::header "Content-Length"] <= 1048576}{
+      set content_length [HTTP::header "Content-Length"]
+    } else {
+      set content_length 1048576
+    }
+    # Check if $content_length is not set to 0
+    if { $content_length > 0} {
+      HTTP::collect $content_length
+    }
+  }
+}
+
+when HTTP_REQUEST_DATA {
+
+  set rodcislo [findstr [HTTP::payload] "rodnecislo=" 11 19 ]
+  log local0. "rodnecislo je $rodcislo"
+  HTTP::release
+
+}

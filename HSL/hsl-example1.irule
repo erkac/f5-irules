@@ -1,0 +1,17 @@
+when RULE_INIT {
+    set static::general_remote_syslog_publisher "publisher-remote-syslog"
+}
+ 
+when CLIENT_ACCEPTED {
+    set hsl [HSL::open -publisher $static::general_remote_syslog_publisher]
+    HSL::send $hsl "Client connect from [IP::client_addr]:[TCP::client_port]"
+}
+ 
+when HTTP_REQUEST {
+    if { [HTTP::header exists X-Forwarded-For] } {
+        HSL::send $hsl "Client has X-Forwarded-For: [HTTP::header X-Forwarded-For]"
+    }
+    else {
+        HSL::send $hsl "Client has no X-Forwarded-For"
+    }
+}

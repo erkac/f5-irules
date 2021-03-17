@@ -1,0 +1,7 @@
+when CLIENT_ACCEPTED {
+   set hsl [HSL::open -proto UDP -pool syslog_server_pool]
+}
+when HTTP_REQUEST {
+   # Log HTTP request via syslog protocol as local7.info; see RFC 3164 for more info
+   HSL::send $hsl "<190> [IP::local_addr] [HTTP::uri]\n"
+}

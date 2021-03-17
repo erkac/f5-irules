@@ -1,0 +1,20 @@
+when HTTP_REQUEST {
+    set hostpool [string tolower [HTTP::host]]_pool
+    # Show us what the client sent in the host header - Turn this OFF in production
+    log local0. "Hostname: [HTTP::host] -> pool is $hostpool"
+    # Use if/then with "Catch" to account for any bad host headers - otherwise TCL will throw an error to the client
+    if { [catch {pool $hostpool} exc] } {
+    # If a client sends a host header that does not match a pool, send to default respond
+        HTTP::respond 200 content {
+        <html>
+            <head>
+                <title>Domain.com - Apology Page</title>
+            </head>
+            <body>
+                We are sorry, but the site you are looking for is temporarily out of service<br>
+                If you feel you have reached this page in error, please try again.
+            </body>
+        </html>
+        }
+    }    
+}

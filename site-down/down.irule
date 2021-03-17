@@ -1,0 +1,25 @@
+# create ltm ifile "down_html" file-name "down.html"
+# create ltm ifile "logo-down" file-name "logo-down.png"
+#
+# create sys file ifile file_obs source-path file:/tmp/obs_file
+# create ltm ifile down_html file-name file_obs
+# modify sys file ifile pice source-path file:/tmp/obs_file
+#
+# HTTP::respond 200 -version 1.1 content $ifileContent1 noserver Content-Encoding "gzip" Accept-Encoding "gzip" Content-Type "text/html;charset=utf-8"
+
+when HTTP_REQUEST {
+  
+  switch -glob [string tolower [HTTP::path]] {
+
+  "/down.html" {
+    set ifileContent1 [ifile get "/Common/down_html"]
+    HTTP::respond 200 content $ifileContent1
+    unset ifileContent1
+  }
+  "/logo-down.png" {
+    set ifileContent2 [ifile get "/Common/logo-down"]
+    HTTP::respond 200 content $ifileContent2
+    unset ifileContent2
+  }
+  }
+}

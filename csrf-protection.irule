@@ -1,0 +1,62 @@
+when HTTP_REQUEST {
+
+  if { [HTTP::header value "X-Forwarded-Proto"] equals "http"} {
+    HTTP::redirect https://[getfield [HTTP::host] ":" 1][HTTP::uri]
+    return
+  }
+
+  if { [HTTP::host] equals "test.cityinsurance.ro" } {
+    set client_path [string tolower [HTTP::path]]
+    
+    if {[HTTP::cookie exists CityInsurance]} {
+      # Read the CityInsurance cookie set by App after login
+      set ci_cookie_value_req [HTTP::cookie value CityInsurance]
+    } else {
+      set ci_cookie_value_req 0
+    }
+
+    set csrf_isset 0
+    if {[HTTP::cookie exists csrf]} {
+      set csrf_isset 1
+      # Read csrf cookie value set on the response 
+      set csrf_cookie_value [HTTP::cookie value csrf]
+      # Read table to see if the user is loged in and csrf cookie (subtable) contains the CityInsurance cookie
+      set table_ci_cookie [table lookup -subtable $csrf_cookie_value ci_cookie]
+    } else {
+      set table_ci_cookie 0
+    }
+
+    # it the client access sensitive URL check whether csrf cookie (subtable) matches the CityInsurance cookie
+    if { ([class match $client_path eq csrf_url]) && ($table_ci_cookie != $ci_cookie_value_req) } {
+      HTTP::respond 405 content {
+        <html>
+          <head>
+              <title>cityinsurance.ro - Apology Page</title>
+          </head>
+          <body>
+            We are sorry, but the site you are looking for is temporarily out of service<br>
+            If you feel you have reached this page in error, please try again.
+          </body>
+        </html>
+      }
+    }
+  }
+}
+
+
+when HTTP_RESPONSE {
+  if { ([info exists csrf_isset]) and ($csrf_isset == 0) } {
+    # Set the subtable $sessionid key to value of CityInsurance cookie, only if this cookie exists
+    # Store the value of sessionid into csrf cookie, so I can match it in REQUEST
+    if { [HTTP::cookie exists "CityInsurance"] } {
+
+      set ci_cookie_value [HTTP::cookie value "CityInsurance"]
+      set sessionid [expr { int(100000000 * rand()) }]
+      HTTP::cookie insert name {csrf} value $sessionid path {/}
+      HTTP::cookie expires {csrf} 3600 relative
+      HTTP::cookie attribute {csrf} insert {SameSite} "Strict"
+      table set -subtable $sessionid ci_cookie $ci_cookie_value 3600
+      log local0. "cookie $sessionid = $ci_cookie_value"
+    }
+  }
+}

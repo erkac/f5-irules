@@ -1,0 +1,30 @@
+# Client SSL Auth based on URI
+
+when CLIENTSSL_HANDSHAKE {
+  log local0.warn "cert count=[SSL::cert count]"
+  if { [SSL::cert count] == "0" } {
+    log local0.warn "when client handshake,ssl cert count is 0,pass"
+  }
+  else {
+    log local0.warn "when clent handshake, two way cert founded and the cert count is [SSL::cert count] "
+    HTTP::release
+  }
+}
+
+when HTTP_REQUEST {
+  if {[HTTP::uri] starts_with "/protected-url/" } {
+    log "Requiring certificate...and the request uri is :[HTTP::uri]"
+    if {[SSL::cert count] == 0} {
+      log local0.info "when http request,ssl cert count is 0,now http collect"
+      HTTP::collect
+      SSL::authenticate always
+      SSL::authenticate depth 9
+      SSL::cert mode require
+      log local0.info "when http request,now renegotiating"
+      SSL::renegotiate
+    }
+  }
+  else {
+    log local0.warn "No cert needed,to server directly.And the uri is [HTTP::uri]"
+  }
+}

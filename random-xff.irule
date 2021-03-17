@@ -1,0 +1,13 @@
+# Alternative 1
+when HTTP_REQUEST {
+    HTTP::header insert X-Forwarded-For [expr int(rand()*128) + 32].[expr int(rand()*254)].[expr int(rand()*254)].[expr int(rand()*254)]    
+}
+
+
+# Alternative 2
+when CLIENT_ACCEPTED {
+	set ip_addr [expr int(rand()*223)].[expr int(rand()*255)].[expr int(rand()*255)].[expr int(rand()*254)]
+}
+when HTTP_REQUEST {
+	HTTP::header insert X-Forwarded-For $ip_addr
+}

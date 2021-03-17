@@ -1,0 +1,17 @@
+# create universal profile
+# attach irule to profile
+# set timeout to the same vaule as the app lookup is!!!
+
+when HTTP_RESPONSE {
+  if { [HTTP::cookie exists "JSESSIONID"] } {
+    persist add uie [HTTP::cookie "JSESSIONID"]
+    log local0. "Set persistance: [IP::remote_addr] - [HTTP::cookie JSESSIONID]"
+  }
+}
+when HTTP_REQUEST {
+  if { [HTTP::cookie exists "JSESSIONID"] } {
+    persist uie [HTTP::cookie "JSESSIONID"]
+    set persist_srv [persist lookup uie [HTTP::cookie "JSESSIONID"]]
+    log local0. "Cookie value: [HTTP::cookie JSESSIONID] - Selected Node: $persist_srv"
+  }
+}

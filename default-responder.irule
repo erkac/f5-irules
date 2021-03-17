@@ -1,0 +1,12 @@
+when HTTP_REQUEST {
+    HTTP::respond 200 content {
+      <html>
+         <head>
+            <title>Pet Store</title>
+         </head>
+         <body>
+            We are Sorry we are down now!
+         </body>
+      </html>
+   }
+}
