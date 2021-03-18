@@ -1,0 +1,26 @@
+when HTTP_REQUEST {
+
+  if { ([HTTP::method] eq "POST") and ( [HTTP::path] eq "/registration" ) } {
+
+    if {[HTTP::header "Content-Length"] ne "" && [HTTP::header "Content-Length"] <= 2048}{
+      set content_length [HTTP::header "Content-Length"]
+    } else {
+      set content_length 2048
+    }
+    # Check if $content_length is not set to 0
+    if { $content_length > 0} {
+      HTTP::collect $content_length
+    }
+  }
+}
+
+when HTTP_REQUEST_DATA {
+  set request_payload [HTTP::payload]
+  HTTP::release
+}
+
+when HTTP_RESPONSE {
+  if { [HTTP::status] contains "404"} {
+    log local0.debug "Request: $request_payload - Response header: [HTTP::status]"
+  }
+}
