@@ -1,0 +1,8 @@
+when DNS_REQUEST {
+  #log local0. "my question name: [DNS::question name]"
+  if { [DNS::question name] contains "klokner.sk" } {
+    pool cloudflare_dns
+    snat 10.1.10.35
+    #log local0. "using cloudflare_dns"
+  }
+}

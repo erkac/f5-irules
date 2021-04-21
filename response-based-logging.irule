@@ -11,6 +11,8 @@ when HTTP_REQUEST {
     if { $content_length > 0} {
       HTTP::collect $content_length
     }
+
+    set clientip [IP::client_addr]
   }
 }
 
@@ -21,6 +23,6 @@ when HTTP_REQUEST_DATA {
 
 when HTTP_RESPONSE {
   if { [HTTP::status] contains "404"} {
-    log local0.debug "Request: $request_payload - Response header: [HTTP::status]"
+    log local0.debug "Request: $clientip - $request_payload - Response header: [HTTP::status]"
   }
 }

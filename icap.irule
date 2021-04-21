@@ -1,0 +1,3 @@
+when ICAP_REQUEST {
+  log local0. "REQUEST: [ICAP::uri]"
+}
