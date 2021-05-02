@@ -1,0 +1,7 @@
+set MYSTRING "192.0.0.1,192.0.0.2,192.0.0.3,fqdn.test.eu,fqdn2.example.com"
+# or it could be set MYSTRING [ACCESS::session data get {session.ad.last.attr.mycustomattr}]
+set ADDRESSARRAY [split $MYSTRING ","]
+ 
+foreach ADDR $ADDRESSARRAY {
+    ACCESS::session data set {session.custom.rdp_$n} $ADDR
+}
