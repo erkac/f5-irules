@@ -2,7 +2,7 @@
 
 Just a bookmark for this [article](https://devcentral.f5.com/s/question/0D51T00008Ow1UOSAZ/apm-advanced-resource-assignment-from-irule).
 
-The main goal would be to dynamically assign up to n nubmers of RDP resources to the session based on a comma separated list from a AD attribute. 
+The main goal would be to dynamically assign up to n numbers of RDP resources to the session based on a comma separated list from a AD attribute. 
 
 ![](./apm-policy.jpeg)
 
@@ -28,3 +28,6 @@ And instead of assigning the resource from the iRule, I assign all of them based
 
 ![](./assign-resource.jpeg)
 
+Resource customization via caption in variable:
+
+![](./apm-customization.png)
