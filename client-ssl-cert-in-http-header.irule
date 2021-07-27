@@ -1,0 +1,195 @@
+# URL Cert Authentication + passing Certificate info to Backend Servers
+
+# Client SSL Auth based on URI
+# passing information from Certificate to backend servers in http headers
+# Version 3
+#
+#HTTP::respond 302 Location "http://[HTTP::host]/errorssl403.html"
+
+when CLIENT_ACCEPTED priority 1 {
+  # set to 0 to disable logging to /var/log/ltm
+  # set to 1 to enable logging to /var/log/ltm
+  set debug 0
+}
+
+when CLIENTSSL_HANDSHAKE priority 1 {
+  #if { $debug } { log local0.warn "cert count=[SSL::cert count]" }
+
+  if { [SSL::cert count] != "0" } {
+    #if { $debug } { log local0.warn "when clent handshake, two way cert founded and the cert count is [SSL::cert count]" }
+
+    # RequestHeader set "X-SSL-Success" %{SSL_CLIENT_VERIFY}e
+    set verify_result [SSL::verify_result]
+    if { $verify_result == 0 } {
+      set "ssl_client(X-SSL-Success)" "SUCCESS"
+    }
+    else {
+      set "ssl_client(X-SSL-Success)" "FAILED: [X509::verify_cert_error_string [SSL::verify_result]]"
+    }
+    unset verify_result
+
+    # RequestHeader set "X-SSL-Validity-Start" %{SSL_CLIENT_V_START}e
+    # Jan 16 14:30:35 2005 GMT
+    set validity_start [X509::not_valid_before [SSL::cert 0]]
+    set "ssl_client(X-SSL-Validity-Start)" $validity_start
+
+    unset validity_start
+
+    # RequestHeader set "X-SSL-Validity-End" %{SSL_CLIENT_V_END}e
+    # Jan 16 14:30:35 2005 GMT
+    set validity_end [X509::not_valid_after [SSL::cert 0]]
+    set "ssl_client(X-SSL-Validity-End)" $validity_end
+    unset validity_end
+
+    set subject_dn [X509::subject [SSL::cert 0]]
+    set subject_dn_user [getfield $subject_dn "," 1]
+    set subject_dn_org [getfield $subject_dn "," 2]
+    if { $debug } { log "DEBUG: Subject DN - $subject_dn" }
+    # RequestHeader set "X-SSL-Client-Name" %{SSL_CLIENT_S_DN_CN}e
+    #regexp {CN=([^,]+)} $subject_dn_user match;
+    set match [getfield $subject_dn_user "=" 2]
+    if { [ info exists match ] } {
+      set "ssl_client(X-SSL-Client-Name)" $match
+      #set "ssl_client(X-SSL-Client-Name)" "USER TEST"
+      unset match
+    } else {
+      set "ssl_client(X-SSL-Client-Name)" "(null)"
+    }
+
+    # RequestHeader set "X-SSL-Country" %{SSL_CLIENT_S_DN_C}e
+    #regexp {C=([^,]+)} $subject_dn match;
+    #if { [ info exists match ] } {
+    # set "ssl_client(X-SSL-Country)" $match
+    # unset match
+    #} else {
+    # set "ssl_client(X-SSL-Country)" "(null)"
+    #}
+
+            # RequestHeader set "X-SSL-State" %{SSL_CLIENT_S_DN_ST}e
+            #regexp {ST=([^,]+)} $subject_dn match;
+    #if { [ info exists match ] } {
+    # set "ssl_client(X-SSL-State)" $match
+    # unset match
+    #} else {
+    # set "ssl_client(X-SSL-State)" (null)
+    #}
+
+            # RequestHeader set "X-SSL-Location" %{SSL_CLIENT_S_DN_L}e
+            #regexp {L=([^,]+)} $subject_dn match;
+            #if { [ info exists match ] } {
+    # set "ssl_client(X-SSL-Location)" $match
+    # unset match
+    #} else {
+    # set "ssl_client(X-SSL-Location)" "(null)"
+    #}
+
+    # RequestHeader set "X-SSL-Organization" %{SSL_CLIENT_S_DN_O}e
+    #regexp {O=([^,]+)} $subject_dn_org match;
+    set match [getfield $subject_dn_org "=" 2]
+    if { [ info exists match ] } {
+      set "ssl_client(X-SSL-Organization)" $match
+      #set "ssl_client(X-SSL-Organization)" "STOIAN ELENA"
+      unset match
+    } else {
+      set "ssl_client(X-SSL-Organization)" "(null)"
+    }
+
+    # RequestHeader set "X-SSL-Organization-Unit" %{SSL_CLIENT_S_DN_OU}e
+    #regexp {OU=([^,]+)} $subject_dn match;
+    #if { [ info exists match ] } {
+    # set "ssl_client(X-SSL-Organization-Unit)" $match
+    # unset match
+    #} else {
+    # set "ssl_client(X-SSL-Organization-Unit)" "(null)"
+    #}
+
+    # RequestHeader set "X-SSL-Email" %{SSL_CLIENT_S_DN_Email}e
+    #regexp {Email=([^,]+)} $subject_dn match;
+    #if { [ info exists match ] } {
+    # set "ssl_client(X-SSL-Email)" $match
+    # unset match
+    #} else {
+    # set "ssl_client(X-SSL-Email)" "(null)"
+    #}
+    unset subject_dn
+
+    # RequestHeader set “X-SSL-I-Organization" %{SSL_CLIENT_I_DN_O}e
+    set "ssl_client(X-SSL-I-Organization)" [X509::issuer [SSL::cert 0]]
+    #set "ssl_client(X-SSL-I-Organization)" "(null)"
+
+    # WL-Proxy-SSL: true
+    # WL-Proxy-Client-Cert:
+    # WL-Proxy-Client-Keysize: 256
+    # WL-Proxy-Client-Secretkeysize: 256
+    # WL-Proxy-Client-IP:
+    # Proxy-Client-IP:
+    # X-Forwarded-For:
+    set "ssl_client(WL-Proxy-SSL)" "true"
+    #set thecert [findstr [X509::whole [SSL::cert 0]] "-----BEGIN CERTIFICATE-----" 28 "-----END CERTIFICATE-----"]
+
+    #set thecert [findstr [X509::whole [SSL::cert 0]] "-----BEGIN CERTIFICATE-----" 28 "-----END CERTIFICATE-----"]
+    #log local0.info "THECERT: $thecert"
+    #set certnospace [string map -nocase {" " ""} $thecert]
+    #log local0.info "THECERT2: $certnospace"
+    #regsub -all " " $thecert "" certnospace2
+    #log local0.info  "THECERT3: $certnospace2"
+    #set findmenospace2 [regexp -all -inline {\S+} $thecert]
+    #log local0.info "THECERT4: $findmenospace2"
+
+    #set "ssl_client(WL-Proxy-Client-Cert)" "MIICkDCCAXigAwIBAgIKYdQXeAAIAB1CxDANBgkqhkiG9w0BAQUFADAgMR4wHAYDVQQDExVCYW5jYSBUcmFuc2lsdmFuaWEgQ0EwHhcNMTQxMTA2MTIzMTAyWhcNMTUxMTA2MTI0MTAyWjAuMRUwEwYDVQQKEwxTVE9JQU4gRUxFTkExFTATBgNVBAMTDFNUT0lBTiBFTEVOQTCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEAy6VQmbJiKa/sKbBmTnV8L7wB+EXxCq++cGIaibVL3GzrOXw5bM3VRPD7t1g/oqFnoTovfn7iDhl5fkm7nwD7CnBFtN8GDpFa/zbs6jndOVKI92SbXf6scF7admrt7T5LgMH2HqafJtL4TqsL0POnJpfM/3T7+G3TDcOfkSUSxjMCAwEAAaNCMEAwHQYDVR0OBBYEFPWvPpFB7Gx2/N1739gfr6JBi/d6MB8GA1UdIwQYMBaAFAYKGpQ2GZO5F3Imo80gEQMncolQMA0GCSqGSIb3DQEBBQUAA4IBAQAGBCwEGgnvpT8HsKHZY88G5kpsdFFzd/fVX2zNAoJzfCJY5V0ccWP82w+pJvgz9PbC3itVXR3nB/cHS1o799bt6OASgXc0tgkYWret5tNes7QHWnq1SWzjbCfD3xujij8rwNMWQuN+DTmqDxytG+vUThnlOD8eM3yCgEN6coADXjbS9KD7dzF8SRF+9tdw1ZmJhZKMOsqRMPzFoMcZPIUHggjx7W+9IDN0mZjxT3RJ6mTf/Gk9pZUgReMNns2n03UDuBoItiX3f1BboOPabJihsoLIsonC+rn7nrife7BP+OsCLL1DJgHtsSxj0mvHeQboDDunmfI6dWXav8QklW4h"
+
+    #set "ssl_client(WL-Proxy-Client-Keysize)" "256"
+    #set "ssl_client(WL-Proxy-Client-Secretkeysize)" "256"
+    #set "ssl_client(WL-Proxy-Client-IP)" [IP::client_addr]
+    #set "ssl_client(Proxy-Client-IP)" [IP::client_addr]
+    #set "ssl_client(X-Forwarded-For)" [IP::client_addr]
+    #set "ssl_client(X-WebLogic-KeepAliveSecs)" "70"
+
+    #unset thecert
+
+    # populate ssl session table
+    #session add ssl [SSL::sessionid] "$ssl_client"
+    set clientlist [array get ssl_client]
+    session add ssl [SSL::sessionid] $clientlist
+    unset clientlist
+
+    HTTP::release
+  }
+  else {
+    #if { $debug } { log local0.warn "when client handshake, ssl cert count is 0, pass" }
+  }
+}
+
+when HTTP_REQUEST priority 1 {
+  if { [HTTP::uri] starts_with "/protected_URL/" } {
+    #if { $debug } { log "Requiring certificate...and tht request uri is :[HTTP::uri]" }
+    if { [SSL::cert count] == 0} {
+      #if { $debug } { log local0.info "when http request, ssl cert count is 0,now http collect" }
+      HTTP::collect
+      SSL::authenticate always
+      SSL::authenticate depth 9
+      SSL::cert mode require
+      #if { $debug } { log local0.info "when http request, now renegotiating" }
+      SSL::renegotiate
+    }
+  }
+  else {
+    #if { $debug } { log local0.warn "No cert needed,to server directly and the uri is [HTTP::uri]" }
+  }
+}
+
+when HTTP_REQUEST priority 2 {
+  clientside { set ssl_sessionid [SSL::sessionid] }
+  if { $ssl_sessionid ne "0000000000000000000000000000000000000000000000000000000000000000" && $ssl_sessionid ne ""} {
+    #set ssl_client [session lookup ssl $ssl_sessionid]
+    array set ssl_client [session lookup ssl $ssl_sessionid]
+    if { [ array exists ssl_client ] } {
+      foreach header [array names ssl_client] {
+        if { $debug } { log "HEADER: $header $ssl_client($header)" }
+          #HTTP::header remove "$header"
+          HTTP::header insert "$header" "$ssl_client($header)"
+      }
+    }
+  }
+}
+
