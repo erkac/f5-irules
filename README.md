@@ -7,6 +7,6 @@
 - We provided many workarounds for the customer as below:
   1. return to previous behavior as they initially requested: #tmsh modify sys db tmm.http.tcl.validation value disable.
   2. check for var Has_Responded before trying to modify an HTTP context if conflicting iRules are assigned to the same virtual.
-  3. once an iRule sends a HTTP::respond/redirect make sure to disable event all after that line so that other iRules dont attempt to change anything on the context.
+  3. once an iRule sends a HTTP::respond/redirect make sure to disable event all after that line so that other iRules don't attempt to change anything on the context.
   4. Adjust priorities of execution on iRules (needs good understanding of customer requirements as they seem to have different iRules that needs to be priorities first and this indicates the lack of original design in their iRules implementation).
 
