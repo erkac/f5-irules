@@ -1,3 +1,7 @@
+###
+### seems that the sessionid is not persistant! 
+###
+
 # URL Cert Authentication + passing Certificate info to Backend Servers
 
 # Client SSL Auth based on URI
