@@ -1,0 +1,27 @@
+when HTTP_REQUEST {
+   # Other HTTP values can be added here 
+   set requri "http://[HTTP::host][HTTP::uri]"
+}
+when ASM_REQUEST_BLOCKING {
+   
+     set asm_support_id [ASM::support_id]
+     HTTP::header remove Content-Length
+     HTTP::header insert header_1 value_1
+     set client_ip [IP::client_addr]
+
+     set response "<html>
+                        <head>
+                           <title>Request Rejected</title>
+                        </head>
+                        <body>
+                            The requested URL was rejected. Please consult with your administrator.<br><br>
+                            Your support ID is: $asm_support_id<br><br><a href='javascript:history.back();'>Go Back</a><br><br>
+                            Your URL is: $requri
+                            Your client IP is: $client_ip
+
+                        </body>
+                    </html>"
+     ASM::payload replace 0 [ASM::payload length] ""
+     ASM::payload replace 0 0 $response
+
+}
