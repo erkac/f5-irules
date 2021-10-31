@@ -1,0 +1,24 @@
+when HTTP_REQUEST priority 99 {
+    set simple_health_check "false"
+    if { ([HTTP::path] equals "/simple-health-check") } {
+        set simple_health_check "true"
+    }
+}
+
+when LB_FAILED {
+    if {${simple_health_check} eq "true"} {
+        HTTP::respond 502 content "Bad Gateway"
+        event disable all
+        return
+    } 
+}
+
+when HTTP_RESPONSE {
+    if {${simple_health_check} eq "true"} {
+        if { [LB::status] eq "up" } {
+            HTTP::respond 200 content "OK"
+        }
+        event disable all
+        return
+    } 
+}
