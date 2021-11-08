@@ -1,0 +1,24 @@
+when CLIENT_DATA {
+  set resp1 [call dns-forward 1.8.4.4]
+  if { $resp1 eq "" } then {
+
+    log local0. "NO RESPONSE #1"
+    set resp2 [call dns-forward 2.8.4.4 ]
+    if { $resp2 eq "" } then {
+      log local0. "NO RESPONSE #2"
+      UDP: : respond [call dns-forward 8.8.4.4]
+    } else {
+      UDP::respond $resp2
+    }
+  } else {
+    UDP : : respond $resp1
+  }
+}
+
+proc dns-forward { ipaddr } {
+  set conn_id [connect -protocol UDP -timeout 300 - idle 3 -status conn_status $ipaddr:53]
+  set send_bytes [send -status send_status $conn_id [UDP: :payload]]
+  set resp [rec -timeout 200 $conn_id]
+  close $conn_id
+  return $resp
+}
