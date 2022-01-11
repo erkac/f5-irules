@@ -1,0 +1,20 @@
+### NOT TESTED - DRAFT
+
+when HTTP_REQUEST_SEND {
+    if { ( [string tolower [HTTP::uri]] equals "/loginform.html" ) and ( [HTTP::method] equals "POST" ) } {
+        HTTP::collect [HTTP::header Content-Length]
+    }
+}
+
+when HTTP_REQUEST_SEND {
+
+    clientside {
+      set username "unknown"
+      foreach x [split [string tolower [HTTP::payload]] "&"] {
+          if { $x starts_with "username=" } {
+              set username [lindex [split $x "="] 1]
+          }
+      }
+      log local0. "User $username attempted login from [IP::client_addr]:[TCP::client_port]"
+    }
+}
