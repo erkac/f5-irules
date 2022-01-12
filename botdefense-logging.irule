@@ -1,0 +1,20 @@
+when CLIENT_ACCEPTED {
+  set my_hsl [HSL::open -publisher /Common/DCD_PUBLISHER_SPLUNK]
+}
+when HTTP_REQUEST {
+  set geo [whereis [IP::client_addr] country]
+  set req "[HTTP::method] [HTTP::uri] HTTP [HTTP::version]\\r\\n"
+  foreach aHeader [HTTP::header names] {
+    append req "$aHeader: [HTTP::header value $aHeader]\\r\\n"
+  }
+  log local0.info "$req"
+}
+when BOTDEFENSE_ACTION {
+  if { [BOTDEFENSE::action] eq "tcp_rst" } {
+    log local0.info " ASL [BOTDEFENSE::action]"
+    HSL::send $my_hsl "hostname=$static::tcl_platform(machine),client_ip=[IP::client_addr],client_ip_geo_location=$geo,client_port=[TCP::client_port],client_request_uri=[HTTP::path],context_name=[virtual],context_type=Virtual Server,dest_ip=[IP::local_addr],dest_port=[TCP::local_port],device_product=Application Security Module,device_vendor=F5,http_method=[HTTP::method],http_protocol_indication=HTTPS,http_protocol_info=HTTP [HTTP::version],virtual_server_name=[virtual],host=[HTTP::host],support_id=[BOTDEFENSE::support_id],request_status=bot_signature,bot_signature=[BOTDEFENSE::bot_signature],bot_signature_category=[BOTDEFENSE::bot_signature_category],bot_name=[BOTDEFENSE::bot_name],class=[BOTDEFENSE::client_class],new_request_status=[BOTDEFENSE::action],client_type=bot,http_request=\"$req\""
+  }
+}
+when CLIENT_CLOSED {
+  unset my_hsl
+}
