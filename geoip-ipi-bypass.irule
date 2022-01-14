@@ -1,0 +1,33 @@
+when HTTP_REQUEST {
+#    use [HTTP::header values "X-Forwarded-For"] in replacement of [IP::client_addr] if using the x forwarded for testing 
+
+  if { [ string toupper [whereis [IP::client_addr] country ] != "BG" ] } {
+    set ip_reputation_categories [IP::reputation [IP::client_addr]]
+    set is_reject 0
+    
+    if {($ip_reputation_categories contains "Windows Exploits")} {
+      set is_reject 1 
+    }
+    if {($ip_reputation_categories contains "Web Attacks")} {  
+      set is_reject 1 
+    } 
+    if {($ip_reputation_categories contains "Scanners")}{  
+      set is_reject 1 
+    }
+    if {($ip_reputation_categories contains "Proxy")}{  
+      set is_reject 1 
+    }
+
+    if {($is_reject)} {
+      log local0. "Attempted access from malicious IP address [IP::client_addr]($ip_reputation_categories), request was rejected"
+      HTTP::respond 200 content "
+      Rejected Request
+      The request was rejected. 
+      Attempted access from malicious IP address
+      "
+    }
+  } else {
+    log local0. "Client accessing from Bulgaria [IP::client_addr] - baypassing IP Intelligence"
+  }
+
+}

@@ -1,0 +1,6 @@
+when ACCESS_POLICY_AGENT_EVENT {
+  if { [ACCESS::session data get session.ssl.cert.x509extension] contains "othername:UPN<" } {
+    ACCESS::session data set session.logon.last.username [lindex [split [findstr [ACCESS::session data get session.ssl.cert.x509extension] "othername:UPN<" 14 ">"] "@"] 0]
+    ACCESS::session data set session.logon.last.domain [lindex [split [findstr [ACCESS::session data get session.ssl.cert.x509extension] "othername:UPN<" 14 ">"] "@"] 1]
+  }
+}

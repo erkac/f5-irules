@@ -1,0 +1,7 @@
+# GTM/DNS log an edns0 request subnet
+
+when DNS_REQUEST {
+  if { [DNS::edns0 exists] } {
+    log local0. [DNS::edns0 subnet address]"
+  }
+}

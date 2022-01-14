@@ -1,0 +1,31 @@
+when CLIENT_ACCEPTED {
+    set lpAll [HSL::open -publisher /Common/HSL_Publisher]
+    set tcp_start_time [clock clicks -milliseconds] 
+}
+ 
+when CLIENTSSL_CLIENTHELLO {
+    set cname [SSL::cipher name]
+    set cversion [SSL::cipher version]
+}
+ 
+when HTTP_REQUEST {
+   set vip [IP::local_addr]:[TCP::local_port]
+   set method [HTTP::method]
+   set http_request "\"[HTTP::method] https://[HTTP::header Host][HTTP::uri] HTTP/[HTTP::version]\""
+   set request_host [HTTP::header Host]
+}
+ 
+when LB_SELECTED { 
+   set ppool [LB::server pool]
+}
+ 
+when HTTP_RESPONSE {
+   set client [IP::client_addr]:[TCP::client_port]
+   set node [IP::server_addr]:[TCP::server_port]
+   set nodeResp [HTTP::status]
+   HSL::send $lpAll "\nBuilt HTTPs ($cversion) connection for IP $client -> VIP $vip -> node $node ($ppool) with cipher $cname.\nClient query domain $request_host $http_request with response code $nodeResp."
+}
+ 
+when CLIENT_CLOSED { 
+   HSL::send $lpAll "\nClosed HTTPs ($cversion) connection for IP $client -> VIP $vip -> node $node (Elapset time: [expr {[clock clicks -milliseconds] - $tcp_start_time}] ms)."
+}

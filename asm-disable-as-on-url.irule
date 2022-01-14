@@ -1,0 +1,11 @@
+when RULE_INIT {
+   set static::badsigid "200000103"
+   set static::baduri "/examples/"
+}
+
+when ASM_REQUEST_DONE {
+  if {[HTTP::uri] eq $static::baduri && [ASM::violation count] eq 1 && [lindex [ASM::violation details] 3] contains $static::badsigid}{
+      ASM::unblock
+      log local0. "Request for [HTTP::uri] from [ASM::client_ip] unblocked because it triggered only signature $static::badsigid"
+  }
+}

@@ -1,0 +1,7 @@
+when HTTP_REQUEST {
+   log local0. "[IP::client_addr]:[TCP::client_port]:\
+      \[SSL::cipher version\]: [SSL::cipher version],\
+      \[SSL::cipher name\]: [SSL::cipher name],\
+      \[SSL::cipher bits\]: [SSL::cipher bits],\
+      U-A: [HTTP::header User-Agent]"
+}

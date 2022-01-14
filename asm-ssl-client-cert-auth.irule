@@ -1,0 +1,18 @@
+when RULE_INIT {
+    set static::fakepwd "fakepwd"
+}
+
+when CLIENTSSL_HANDSHAKE {
+    # log local0. "user : [X509::subject [SSL::cert 0]]"
+    set myusername [findstr [X509::subject [SSL::cert 0]] ",CN=" 4 ","]
+    # log local0. "username : $myusername"
+}
+
+when HTTP_REQUEST {
+    HTTP::header insert Authorization "Basic [b64encode $myusername:$static::fakepwd]"
+    #log local0. "[HTTP::header Authorization]"
+}
+
+when HTTP_REQUEST_RELEASE {
+    HTTP::header remove Authorization
+}

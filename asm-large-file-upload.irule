@@ -1,0 +1,10 @@
+# https://devcentral.f5.com/articles/file-uploads-and-asm
+# ./_documents/ASM-file-upload.pdf
+
+when ASM_REQUEST_VIOLATION {
+  if {([HTTP::method] equals "POST") and ([string tolower [HTTP::path]] ends_with "/foo.cfm") and ([string tolower [HTTP::header "Content-Type"]] contains "multipart/form-data") } {
+    if {([lindex [ASM::violation_data] 0] contains "VIOLATION_REQUEST_TOO_LONG") } {
+      ASM::unblock
+    }
+  }
+}

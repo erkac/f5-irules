@@ -1,0 +1,21 @@
+when HTTP_REQUEST {
+  # Disable the stream filter for all requests
+  STREAM::disable
+
+  # LTM does not uncompress response content, so if the webserver has compression enabled
+  # we must prevent the server from send us a compressed response by changing the request
+  # header that indicates client support for compression (on our LTM client-side we can re-
+  # apply compression before the response goes across the Internet)
+  HTTP::header remove "Accept-Encoding"
+}
+
+when HTTP_RESPONSE {
+  # Check if response type is text
+  if {[HTTP::header value Content-Type] starts_with "text"} {
+    # Replace http:// with https://
+    STREAM::expression {@http://@https://@}
+
+    # Enable the stream filter for this response only
+    STREAM::enable
+  }
+}
