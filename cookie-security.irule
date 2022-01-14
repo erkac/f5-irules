@@ -1,0 +1,4 @@
+when HTTP_RESPONSE {
+	HTTP::cookie secure <name> enable
+    HTTP::cookie httponly <name> enable
+}

@@ -1,0 +1,20 @@
+when RULE_INIT {
+    set static::fqdn_pin1 "X3pGTSOuJeEVw989IJ/cEtXUEmy52zs1TZQrU06KUKg="
+    set static::fqdn_pin2 "MHJYVThihUrJcxW6wcqyOISTXIsInsdj3xK8QrZbHec="
+    set static::max_age 15552000
+}
+
+when HTTP_REQUEST {
+    HTTP::respond 301 Location "https://[HTTP::host][HTTP::uri]"
+}
+
+when HTTP_RESPONSE {
+    HTTP::header insert Strict-Transport-Security "max-age=$static::max_age; includeSubDomains"
+    HTTP::header insert Public-Key-Pins "pin-sha256=\"$static::fqdn_pin1\" max age=$static::max_age; includeSubDomains"
+    HTTP::header insert X-XSS-Protection "1; mode=block"
+    HTTP::header insert X-Frame-Options "DENY"
+    HTTP::header insert X-Content-Type-Options "nosniff"
+    HTTP::header insert Content-Security-Policy "default-src https://devcentral.f5.com:443"
+    HTTP::header insert X-Content-Security-Policy "default-src https://devcentral.f5.com:443"
+}
+
