@@ -1,0 +1,80 @@
+# iRule Source for remote logging using HSL
+ 
+# From: W3C Extended Log File Examples (IIS 6.0)
+# http://www.microsoft.com/technet/prodtechnol/WindowsServer2003/Library/IIS/ffdd7079-47be-4277-921f-7a3a6e610dcb.mspx?mfr=true
+#Fields: date time c-ip cs-username s-ip cs-method cs-uri-stem cs-uri-query sc-status sc-bytes cs-bytes time-taken cs-version cs(User-Agent) cs(Cookie) cs(Referrer) 
+when CLIENT_ACCEPTED {
+	# Open a new high speed logging connection to the syslog pool named syslog_server_pool
+	set hslpool "/Common/Pool-KiwiSyslog"
+	set hsl [HSL::open -proto TCP -pool $hslpool]
+	
+	set upstream_addr "-"
+}
+when HTTP_REQUEST priority 999 {
+	# Save request variables that are not accessible in HTTP_RESPONSE, like the URI, request method, etc
+	if { [HTTP::username] ne "" } {
+	    set cs_username [HTTP::username]
+	}
+	else {
+	    set cs_username "-"
+	}
+	
+	set cs_request_line "[HTTP::method] [HTTP::uri] HTTP/[HTTP::version]"
+	set cs_host [HTTP::host]
+	set cs_ua [HTTP::header "User-Agent"]
+    
+	set cs_referer [HTTP::header "Referer"]
+	
+	if { [HTTP::header exists "X-Forwarded-For"] } {
+		set cs_xff [HTTP::header "X-Forwarded-For"]
+	}
+	else {
+		set cs_xff "-"
+	}
+	
+	set cs_request_receive_time [clock clicks -milliseconds]
+}
+when LB_SELECTED {
+	set upstream_addr "[LB::server addr]:[LB::server port]"
+}
+when HTTP_REQUEST_SEND {
+	set ss_request_send_time [clock clicks -milliseconds]
+}
+when HTTP_RESPONSE {
+	set ss_response_receive_time [clock clicks -milliseconds]
+}
+when HTTP_RESPONSE_RELEASE {
+    if { [HTTP::header "Content-Length"] > 0 } {
+        set content_length [HTTP::header "Content-Length"]
+    }
+    else {
+        set content_length 0
+    }
+    
+    set logtime [clock clicks -milliseconds]
+
+	# Send the syslog message with a syslog facility of 134 (local0.info)
+	# See the HSL wiki page for details on the facilties:
+	# https://devcentral.f5.com/wiki/iRules.HSL__send.ashx
+	HSL::send $hsl "<134>\
+		[IP::client_addr]\
+		-\
+		$cs_username\
+		\[[clock format [clock seconds] -format "%d/%b/%Y %H:%M:%S %z"]\]\
+		\"$cs_request_line\"\
+		[HTTP::status]\
+		$content_length\
+	    \"$cs_referer\"\
+		\"$cs_ua\"\
+		\"$cs_xff\"\
+		[expr {($logtime - $cs_request_receive_time) / 1000}].[format %03d [expr {($logtime - $cs_request_receive_time) % 1000}]]\
+		\"$upstream_addr\"\
+		[expr {($ss_response_receive_time - $ss_request_send_time) / 1000}].[format %03d [expr {($ss_response_receive_time - $ss_request_send_time) % 1000}]]\
+		\"$cs_host\"\
+		\n"
+		
+	unset cs_username cs_request_line cs_host cs_ua cs_referer cs_xff cs_request_receive_time ss_request_send_time ss_response_receive_time content_length logtime
+}
+when CLIENT_CLOSED {
+    unset hsl hslpool upstream_addr
+}
