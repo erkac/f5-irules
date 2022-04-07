@@ -1,0 +1,32 @@
+# https://clouddocs.f5.com/api/irules/ClientCertificateCNChecking.html
+
+# Setup a String Data Group containing a list of acceptable CN’s:
+class my_cn_list  {
+    "CN=John Smith"
+    "CN=Amy Black
+    "CN=Jim Beam"
+    "CN=Johnny Walker"
+}
+
+when RULE_INIT {
+        set static::debug 1
+}
+
+when CLIENTSSL_CLIENTCERT {
+        #Example Subject DN:  /C=AU/ST=NSW/L=Syd/O=Your Organisation/OU=Your OU/CN=John Smith
+        set subject_dn [X509::subject [SSL::cert 0]]
+        if { $subject_dn != "" }{
+                if { $static::debug }{ log "Client Certificate received: $subject_dn"}
+        }
+}
+when HTTP_REQUEST {
+        if { [HTTP::uri] starts_with "/companyA" } {
+                if { !($subject_dn contains "CN=Company A") } {
+                        reject
+                }
+        } elseif { [HTTP::uri] starts_with "/companyB" } {
+                if { !($subject_dn contains "CN=Company B") } {
+                        reject
+                }
+        }
+}
