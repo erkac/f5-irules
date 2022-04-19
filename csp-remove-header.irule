@@ -1,0 +1,3 @@
+when HTTP_RESPONSE {
+  HTTP::header remove "Content-Security-Policy"
+}
