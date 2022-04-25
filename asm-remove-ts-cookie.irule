@@ -1,0 +1,6 @@
+when HTTP_RESPONSE_RELEASE {
+  set cookies [HTTP::cookie names]
+  foreach aCookie$cookies {
+    if {$aCookie starts_with "TS"} { HTTP::cookie remove $aCookie }
+	}
+}
