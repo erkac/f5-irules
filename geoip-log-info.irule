@@ -1,0 +1,7 @@
+when CLIENT_ACCEPTED {
+  # random IP addr
+  log local0. "Got client: [whereis [expr int(rand()*128) + 32].[expr int(rand()*254)].[expr int(rand()*254)].[expr int(rand()*254)] country continent state city zip]"
+  # client IP
+  log local0. "Got client: [IP::client_addr] country continent state city zip]"
+}
+
