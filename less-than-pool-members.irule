@@ -1,0 +1,25 @@
+# https://community.f5.com/t5/technical-forum/mark-a-vs-down-when-1-pool-member-is-down/m-p/182603
+# https://community.f5.com/t5/technical-forum/irule-to-disable-vip-with-less-then-x-members-a-pool/m-p/207892
+
+# a GUI WAY:
+# 1) Create as many pool-level health monitors as the pool members, each using an alias IP address representing one pool member;
+# 2) In the "Availability Requirement" field, select "At least", and then enter the minimum number required (e.g. if you have two pool members and you need to set the condition of both being up, enter "2").
+
+when HTTP_REQUEST {
+    if { [active_members http_pool] >= 3 } {
+        pool primary_pool
+    } else {
+        HTTP::fallback "HTTP://www.application_down.com"
+        # OR
+        # HTTP::respond 200 content {
+        #   <html>
+        #     <head>
+        #       <title>Offline</title>
+        #     </head>
+        #     <body>
+        #       We are Sorry we are down now!
+        #     </body>
+        #   </html>
+        # }
+    }
+}
