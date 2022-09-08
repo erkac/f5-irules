@@ -1,0 +1,22 @@
+# It checks for specific values in the Referer header and block the request if anything different than that
+#
+# As an additional point in regards using an iRule with ASM: you could leverage Custom violations and use
+# the ASM::raise command to issue an ASM blocking page and generate the necessary WAF logs.
+# 
+# https://techdocs.f5.com/kb/en-us/products/big-ip_asm/manuals/product/asm-implementations-13-1-0/33.html
+ 
+when ASM_REQUEST_DONE {
+ 
+   switch -glob [HTTP::header "Referer"] {
+   
+    https://*email*.customer.xyz/* {
+    }
+    https://*.emu.int.customer.xyx/* {
+    }
+    https://*.oak.int.customer.xyz/* {
+    }
+    default {
+      ASM::raise CUSTOM_CSRF
+    }
+  }
+}
