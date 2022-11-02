@@ -1,0 +1,67 @@
+# Unfortunately ASM currently does not have an native option for XML to work with Brute Force protection.
+# This can be theoretically possible when using an irule (with some caveats).
+
+# - The iRule first checks that the URL is correct and then grabs the payload.
+# - It then parses the payload and pulls out the Username and Password strings.
+# - It then Base64 encodes those values and puts the value into an HTTP header named Authorization.
+# - It does all of this before ASM processing.
+# - Then you setup the login page (Security -> Application Security -> Sessions and Logins -> Login Pages) to look at that URL and set the auth type to Basic Authentication.
+# - Then in the section below that put Authorization as the name of the header where it asks for that information.
+# - The ASM then decodes the header value to track the username used and based on the criteria given for the login page it will determine if the login is good or bad.
+# - The request is then sent on to the server but the Authorization header is stripped out first.
+
+when RULE_INIT {
+  ## user-defined: size in bytes of HTTP request to parse
+  set static::max_req_size 1048576
+  ## the names of the tags for the username and password. NOTE ":" is added for precision since the tags
+  ## usually have something like a format like <wsse:Username>.
+  ## Please use ":" in front whenever possible e.g. :Username
+  # MAKE SURE LOGIN URL IS LOWERCASE HERE - CODE DOES TO LOWER WHEN COMPARING
+  set static::username_tag ":Username"
+  set static::password_tag ":Password"
+  set static::login_url "/adfs/services/trust/2005/usernamemixed"
+}
+
+when HTTP_REQUEST {
+
+  if { ([HTTP::method] eq "POST") && ([string tolower [HTTP::uri]] contains $static::login_url ) } {
+    # Trigger collection for up to max_req_size of data
+
+    set modify_response_content_type 1
+
+    if {[HTTP::header "Content-Length"] ne "" && [HTTP::header "Content-Length"] <= $static::max_req_size } {
+      set content_length [HTTP::header "Content-Length"]
+    } else {
+      set content_length $static::max_req_size
+    }
+    # Check if $content_length is not set to 0
+    if { $content_length > 0} {
+      HTTP::collect $content_length
+    }
+  }
+}
+
+
+when HTTP_REQUEST_DATA {
+  # collect the incoming payload
+  set payload [HTTP::payload]
+
+  ## skipahead is set to 1 to avoid matching the first less-than sign at the opening of the tags in question
+  set username_raw [findstr $payload $static::username_tag "1" "<"]
+  set password_raw [findstr $payload $static::password_tag "1" "<"]
+
+  if { $username_raw ne "" } {
+    set found_username [findstr $username_raw ">" "1"]
+  }
+  if { $password_raw ne "" } {
+    set found_password [findstr $password_raw ">" "1"]
+  }
+  set auth_header_b64 [b64encode "$found_username:$found_password"]
+
+  HTTP::header insert "Authorization" "Basic $auth_header_b64"
+  #HTTP::header insert "Basic" "True"
+}
+
+when HTTP_REQUEST_RELEASE {
+  HTTP::header remove "Authorization"
+}
