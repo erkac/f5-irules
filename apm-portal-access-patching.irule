@@ -1,0 +1,12 @@
+# https://support.f5.com/csp/article/K13500329
+# https://support.f5.com/csp/article/K15142093
+# 
+# ASCII to HEX converter: https://www.rapidtables.com/convert/number/ascii-to-hex.html
+# https://application.example.com = 68747470733a2f2f6170706c69636174696f6e2e6578616d706c652e636f6d
+
+when HTTP_REQUEST {
+    if { [string tolower [HTTP::uri]] starts_with "/<uri>"} {
+        HTTP::uri "/f5-w-<HEX_equivalent_of_backend_FQDN>$$[HTTP::uri]"
+    }
+}
+
