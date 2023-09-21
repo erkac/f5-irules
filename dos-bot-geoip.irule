@@ -1,0 +1,22 @@
+when CLIENT_ACCEPTED {
+  if {[ whereis [IP::client_addr] country] ne "SK"} {
+    set notslovakia 1
+  } else { set notslovakia 0 }
+}
+
+when HTTP_REQUEST {
+  if { $Snotslovakia eq 1 } {
+    set origuseragent [HTTP::header User-Agent]
+    HTTP::header replace User-Agent "Evil-Bot"
+    #log locall. "Non-Slovakia [IP::client_addr] [ whereis [IP:client_addr] country]"
+  } else {
+    #log local. "Slovakia [IP::client_addr] [ whereis [IP::client_addr] country]"
+  }
+}
+
+when HTTP REQUEST_RELEASE {
+  if { $notslovakia eq 1 } {
+    #log locall. "Pre: [HTTP header User-Agent]'
+    HTTP:-header replace User-Agent "Soriguseragent"
+    #log locall. "Post: [HTTP::header User-Agent]"
+  }
